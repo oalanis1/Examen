@@ -1,0 +1,330 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+<h3>Productos</h3>
+
+@* Condicional if para mostrar el mensaje de error *@
+@if (!string.IsNullOrEmpty(mensajeError))
+{
+    <div class="alert alert-danger" role="alert">
+        @mensajeError
+    </div>
+}
+
+@* Formulario de datos con HTML básico *@
+<div class="form-group row">
+    <label for="inventario" class="col-sm-2 col-form-label">Inventario</label>
+    <div class="col-sm-10">
+        <input type="number" class="form-control" id="inventario" @bind="inventario" />
+    </div>
+</div>
+
+<div class="form-group row">
+    <label for="nombre" class="col-sm-2 col-form-label">Nombre</label>
+    <div class="col-sm-10">
+        <input type="text" class="form-control" id="nombre" @bind="nombre" />
+    </div>
+</div>
+
+<fieldset class="form-group">
+    <div class="row">
+        <legend class="col-form-label col-sm-2 pt-0">Departamento</legend>
+        <div class="col-sm-10">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="deptoOptions" id="frutas" value="Frutas" 
+                       checked="@(departamento == "Frutas")" @onchange="@(() => departamento = "Frutas")" />
+                <label class="form-check-label" for="frutas">Frutas</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="deptoOptions" id="verduras" value="Verduras" 
+                       checked="@(departamento == "Verduras")" @onchange="@(() => departamento = "Verduras")" />
+                <label class="form-check-label" for="verduras">Verduras</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="deptoOptions" id="lacteos" value="Lácteos" 
+                       checked="@(departamento == "Lácteos")" @onchange="@(() => departamento = "Lácteos")" />
+                <label class="form-check-label" for="lacteos">Lácteos</label>
+            </div>
+        </div>
+    </div>
+</fieldset>
+
+@* Botones de control con if / else para alternar entre Guardar o Actualizar *@
+<div class="mb-3">
+    @if (!modoEdicion)
+    {
+        <button class="btn btn-primary" @onclick="Guardar">Guardar</button>
+    }
+    else
+    {
+        <button class="btn btn-primary mr-2" @onclick="Actualizar">Actualizar</button>
+        <button class="btn btn-danger" @onclick="Cancelar">Cancelar</button>
+    }
+</div>
+
+@* Botón para alternar vistas usando if / else *@
+<div class="mb-3">
+    @if (vistaActual == "Listado")
+    {
+        <button class="btn btn-secondary" @onclick="MostrarExistencias">Existencias</button>
+    }
+    else
+    {
+        <button class="btn btn-secondary" @onclick="MostrarListado">Listado</button>
+    }
+</div>
+
+@* Vista de Listado de Productos *@
+@if (vistaActual == "Listado")
+{
+    <h4>Listado de productos</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Inventario</th>
+                <th>Nombre</th>
+                <th>Departamento</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @* Recorrido de la colección usando foreach *@
+            @foreach (var prod in listaProductos)
+            {
+                <tr>
+                    <td>@prod.Inventario</td>
+                    <td>@prod.Nombre</td>
+                    <td>@prod.Departamento</td>
+                    <td>
+                        <button class="btn btn-link text-danger p-0 mr-2" title="Eliminar" @onclick="() => Eliminar(prod.Inventario)">
+                            🗑️
+                        </button>
+                        <button class="btn btn-link text-dark p-0" title="Editar" @onclick="() => Editar(prod)">
+                            ✏️
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@* Vista de Existencias por Departamento *@
+@if (vistaActual == "Existencias")
+{
+    <h4>Existencias por departamento</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Frutas</th>
+                <th>Verduras</th>
+                <th>Lácteos</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@ContarPorDepartamento("Frutas")</td>
+                <td>@ContarPorDepartamento("Verduras")</td>
+                <td>@ContarPorDepartamento("Lácteos")</td>
+            </tr>
+        </tbody>
+    </table>
+}
+
+@code {
+    // Definición de la clase (POO básica)
+    public class Producto
+    {
+        public int Inventario { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Departamento { get; set; } = string.Empty;
+    }
+
+    // Colección (List) para almacenar en memoria
+    private List<Producto> listaProductos = new List<Producto>();
+
+    // Campos del formulario
+    private int inventario = 0;
+    private string nombre = string.Empty;
+    private string departamento = string.Empty;
+
+    // Variables de control
+    private string mensajeError = string.Empty;
+    private bool modoEdicion = false;
+    private int inventarioAEditar = -1;
+    private string vistaActual = "Listado";
+
+    // Guardar nuevo registro con validaciones completas mediante if / else
+    private void Guardar()
+    {
+        // 1. Validar que el inventario sea un número entero positivo
+        if (inventario <= 0)
+        {
+            mensajeError = "El número de inventario debe ser un entero positivo mayor a cero.";
+        }
+        // 2. Validar que el nombre no esté vacío
+        else if (string.IsNullOrWhiteSpace(nombre))
+        {
+            mensajeError = "El nombre del producto no puede estar vacío.";
+        }
+        // 3. Validar que se haya seleccionado un departamento
+        else if (string.IsNullOrEmpty(departamento))
+        {
+            mensajeError = "Debe seleccionar un departamento (Frutas, Verduras o Lácteos).";
+        }
+        else
+        {
+            // 4. Validar que el número de inventario no se repita usando un ciclo for
+            bool existe = false;
+            for (int i = 0; i < listaProductos.Count; i++)
+            {
+                if (listaProductos[i].Inventario == inventario)
+                {
+                    existe = true;
+                    break;
+                }
+            }
+
+            if (existe)
+            {
+                mensajeError = "El número de inventario se encuentra registrado. Debe ser único.";
+            }
+            else
+            {
+                // Si todo es correcto, guardamos y limpiamos el error
+                mensajeError = string.Empty;
+
+                listaProductos.Add(new Producto
+                {
+                    Inventario = inventario,
+                    Nombre = nombre,
+                    Departamento = departamento
+                });
+
+                LimpiarFormulario();
+            }
+        }
+    }
+
+    // Cargar datos en el formulario para editar
+    private void Editar(Producto prod)
+    {
+        inventario = prod.Inventario;
+        nombre = prod.Nombre;
+        departamento = prod.Departamento;
+        
+        inventarioAEditar = prod.Inventario;
+        modoEdicion = true;
+        mensajeError = string.Empty;
+    }
+
+    // Actualizar registro existente con sus respectivas validaciones
+    private void Actualizar()
+    {
+        if (inventario <= 0)
+        {
+            mensajeError = "El número de inventario debe ser un entero positivo mayor a cero.";
+        }
+        else if (string.IsNullOrWhiteSpace(nombre))
+        {
+            mensajeError = "El nombre del producto no puede estar vacío.";
+        }
+        else if (string.IsNullOrEmpty(departamento))
+        {
+            mensajeError = "Debe seleccionar un departamento.";
+        }
+        else
+        {
+            // Verificar si el nuevo inventario ya existe en otro registro (si cambió)
+            bool existe = false;
+            if (inventario != inventarioAEditar)
+            {
+                for (int i = 0; i < listaProductos.Count; i++)
+                {
+                    if (listaProductos[i].Inventario == inventario)
+                    {
+                        existe = true;
+                        break;
+                    }
+                }
+            }
+
+            if (existe)
+            {
+                mensajeError = "El número de inventario se encuentra registrado. Debe ser único.";
+            }
+            else
+            {
+                mensajeError = string.Empty;
+
+                for (int i = 0; i < listaProductos.Count; i++)
+                {
+                    if (listaProductos[i].Inventario == inventarioAEditar)
+                    {
+                        listaProductos[i].Inventario = inventario;
+                        listaProductos[i].Nombre = nombre;
+                        listaProductos[i].Departamento = departamento;
+                        break;
+                    }
+                }
+
+                modoEdicion = false;
+                LimpiarFormulario();
+            }
+        }
+    }
+
+    // Cancelar la edición
+    private void Cancelar()
+    {
+        modoEdicion = false;
+        mensajeError = string.Empty;
+        LimpiarFormulario();
+    }
+
+    // Eliminar producto utilizando un ciclo while
+    private void Eliminar(int numInventario)
+    {
+        int indice = 0;
+        bool encontrado = false;
+
+        while (indice < listaProductos.Count)
+        {
+            if (listaProductos[indice].Inventario == numInventario)
+            {
+                encontrado = true;
+                break;
+            }
+            indice++;
+        }
+
+        if (encontrado)
+        {
+            listaProductos.RemoveAt(indice);
+        }
+    }
+
+    // Conteo de existencias por departamento usando foreach e if
+    private int ContarPorDepartamento(string deptoBuscado)
+    {
+        int contador = 0;
+        foreach (var prod in listaProductos)
+        {
+            if (prod.Departamento == deptoBuscado)
+            {
+                contador++;
+            }
+        }
+        return contador;
+    }
+
+    private void MostrarExistencias() => vistaActual = "Existencias";
+    private void MostrarListado() => vistaActual = "Listado";
+
+    private void LimpiarFormulario()
+    {
+        inventario = 0;
+        nombre = string.Empty;
+        departamento = string.Empty;
+    }
+}
